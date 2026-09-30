@@ -169,10 +169,10 @@ Window {
                         required property string body
                         required property int index
                         width: list.width
-                        height: line.implicitHeight
+                        height: body === "" ? 0 : line.implicitHeight
 
                         Rectangle {
-                            visible: who === "user"
+                            visible: who === "user" && body !== ""
                             anchors.fill: line
                             radius: 12
                             color: "#26272e"
@@ -182,8 +182,8 @@ Window {
                             id: line
                             width: who === "user" ? Math.min(implicitWidth + 20, list.width * 0.86) : list.width
                             anchors.right: who === "user" ? parent.right : undefined
-                            text: body === "" ? "…" : body
-                            color: body === "" ? "#8e8f99" : "#f3f3f5"
+                            text: body
+                            color: "#f3f3f5"
                             wrapMode: Text.Wrap
                             font.pixelSize: 15
                             lineHeight: 1.25
@@ -195,7 +195,18 @@ Window {
                         }
                     }
 
-                    onCountChanged: Qt.callLater(positionViewAtEnd)
+                    // Stay with the latest line while the view is already at the end,
+                    // so a growing reply remains above the status row.
+                    property bool followEnd: true
+
+                    onMovementStarted: followEnd = false
+                    onMovementEnded: followEnd = atYEnd
+                    onContentHeightChanged: if (followEnd) Qt.callLater(positionViewAtEnd)
+                    onHeightChanged: if (followEnd) Qt.callLater(positionViewAtEnd)
+                    onCountChanged: {
+                        followEnd = true
+                        Qt.callLater(positionViewAtEnd)
+                    }
                 }
 
                 Text {
@@ -211,12 +222,12 @@ Window {
                 }
 
                 RowLayout {
-                    visible: corner.activity !== ""
                     Layout.fillWidth: true
                     spacing: 8
 
                     Rectangle {
                         id: statusDot
+                        visible: corner.activity !== ""
                         Layout.alignment: Qt.AlignVCenter
                         width: 8
                         height: 8
@@ -236,41 +247,52 @@ Window {
                     }
 
                     Text {
+                        id: statusLine
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignVCenter
-                        text: corner.activity
-                        color: corner.activity === "Stopped" ? "#e0a050" : "#d8d8de"
+                        text: corner.activity === "" ? " " : corner.activity
+                        color: corner.activity === "" ? "transparent" : (corner.activity === "Stopped" ? "#e0a050" : "#d8d8de")
                         font.pixelSize: 14
                         elide: Text.ElideMiddle
                     }
                 }
 
-                TextArea {
-                    id: input
+                ScrollView {
+                    id: prompt
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Math.min(Math.max(implicitHeight, 44), 120)
-                    placeholderText: "Ask Grok"
-                    placeholderTextColor: "#7d7e88"
-                    color: "#f4f4f5"
-                    wrapMode: TextEdit.Wrap
-                    selectByMouse: true
-                    padding: 10
-                    font.pixelSize: 15
+                    Layout.preferredHeight: Math.min(Math.max(input.implicitHeight, 44), 120)
+                    Layout.maximumHeight: 120
+                    clip: true
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
                     background: Rectangle {
                         radius: 12
                         color: "#0d0e11"
                         border.color: input.activeFocus ? "#3c3d46" : "#2a2b31"
                     }
 
-                    Keys.onPressed: (event) => {
-                        if (event.key === Qt.Key_Escape) {
-                            win.closePanel()
-                            event.accepted = true
-                        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                                   && !(event.modifiers & Qt.ShiftModifier)) {
-                            corner.send(input.text)
-                            input.text = ""
-                            event.accepted = true
+                    TextArea {
+                        id: input
+                        width: prompt.availableWidth
+                        placeholderText: "Ask Grok"
+                        placeholderTextColor: "#7d7e88"
+                        color: "#f4f4f5"
+                        wrapMode: TextEdit.Wrap
+                        selectByMouse: true
+                        padding: 10
+                        font.pixelSize: 15
+                        background: null
+
+                        Keys.onPressed: (event) => {
+                            if (event.key === Qt.Key_Escape) {
+                                win.closePanel()
+                                event.accepted = true
+                            } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                                       && !(event.modifiers & Qt.ShiftModifier)) {
+                                corner.send(input.text)
+                                input.text = ""
+                                event.accepted = true
+                            }
                         }
                     }
                 }

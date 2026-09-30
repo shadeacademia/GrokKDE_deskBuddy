@@ -134,6 +134,8 @@ class QueuedLineTest(unittest.TestCase):
         corner._apply({"kind": "text", "data": "Hi"})
         self.assertEqual(corner.activity, "Replying")
         self.assertEqual(corner._model._items[0]["body"], "Hi")
+        corner._apply({"kind": "status", "data": "Thinking"})
+        self.assertEqual(corner.activity, "Thinking")
 
     def test_prompt_tokens_become_a_percent_of_the_window(self):
         from PySide6.QtGui import QGuiApplication
