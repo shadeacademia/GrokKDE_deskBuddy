@@ -1,0 +1,13 @@
+#!/bin/sh
+# Start the corner overlay on the current KDE Wayland session.
+APP=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -z "$XDG_RUNTIME_DIR" ]; then
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+fi
+if [ -z "$WAYLAND_DISPLAY" ]; then
+    export WAYLAND_DISPLAY=wayland-0
+fi
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}"
+export QT_WAYLAND_SHELL_INTEGRATION=layer-shell
+export QT_QUICK_CONTROLS_STYLE=Basic
+exec /usr/bin/python3 "$APP/main.py"
