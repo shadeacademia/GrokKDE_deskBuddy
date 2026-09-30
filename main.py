@@ -167,9 +167,30 @@ def _autostart_text(hidden: bool) -> str:
     )
 
 
+# grok-4.7 fills this window, then compacts around 80%.
+CONTEXT_WINDOW = 256_000
+# A later call in the same reply can report a slightly smaller prompt.
+# Compaction drops the window by much more than this.
+CONTEXT_DIP = 15
+
+
+def context_percent(tokens: int) -> int:
+    if tokens < 0:
+        return -1
+    return (tokens * 100 + CONTEXT_WINDOW // 2) // CONTEXT_WINDOW
+
+
+def next_context_percent(current: int, tokens: int) -> int:
+    percent = context_percent(tokens)
+    if current < 0 or percent >= current or percent + CONTEXT_DIP <= current:
+        return percent
+    return current
+
+
 class Corner(QObject):
     busyChanged = Signal()
     activityChanged = Signal()
+    contextPercentChanged = Signal()
     bumped = Signal()
     signedInChanged = Signal()
     autostartChanged = Signal()
@@ -180,6 +201,7 @@ class Corner(QObject):
         self._model = ChatModel(load_transcript())
         self._busy = False
         self._activity = ""
+        self._context_percent = -1
         self._signed_in = False
         self._autostart = False
         self._signing_in = False
@@ -333,6 +355,17 @@ class Corner(QObject):
 
     activity = Property(str, _get_activity, notify=activityChanged)
 
+    def _get_context_percent(self):
+        return self._context_percent
+
+    def _set_context_percent(self, value: int) -> None:
+        if self._context_percent == value:
+            return
+        self._context_percent = value
+        self.contextPercentChanged.emit()
+
+    contextPercent = Property(int, _get_context_percent, notify=contextPercentChanged)
+
     @Slot(str)
     def send(self, text: str) -> None:
         text = text.strip()
@@ -407,6 +440,8 @@ class Corner(QObject):
             self._set_activity(event["data"])
         elif kind == "error":
             self._append_note(event["data"])
+        elif kind == "context":
+            self._set_context_percent(next_context_percent(self._context_percent, event["tokens"]))
         elif kind == "end" and event.get("session_id"):
             self._session = event["session_id"]
             _atomic_write(SESSION_PATH, self._session + "\n")
@@ -514,6 +549,7 @@ class Corner(QObject):
         self._model.clear()
         self._set_busy(False)
         self._set_activity("")
+        self._set_context_percent(-1)
         self._persist()
         self.bumped.emit()
         log("chat refreshed")

@@ -132,6 +132,19 @@ Window {
                         font.weight: Font.Medium
                     }
 
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        visible: corner.contextPercent >= 0
+                        text: corner.contextPercent + "%"
+                        color: corner.contextPercent >= 70 ? "#e0a050" : "#8e8f99"
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
                 }
 
                 Item {

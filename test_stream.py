@@ -40,6 +40,25 @@ class StreamParserTest(unittest.TestCase):
         events = StreamParser().feed('{"type":"tool_call_update","status":"completed"}\n')
         self.assertEqual(events, [{"kind": "status", "data": "Thinking"}])
 
+    def test_usage_counts_the_full_prompt(self):
+        raw = (
+            '{"type":"usage","usage":{"input_tokens":10000,'
+            '"cache_read_input_tokens":36080,"cache_creation_input_tokens":0,'
+            '"output_tokens":40}}\n'
+        )
+        self.assertEqual(StreamParser().feed(raw), [{"kind": "context", "tokens": 46080}])
+
+    def test_usage_accepts_camel_case(self):
+        raw = '{"type":"usage","usage":{"inputTokens":8000,"cacheReadInputTokens":2000}}\n'
+        self.assertEqual(StreamParser().feed(raw), [{"kind": "context", "tokens": 10000}])
+
+    def test_end_usage_is_not_a_context_reading(self):
+        raw = '{"type":"end","sessionId":"abc","usage":{"input_tokens":999999}}\n'
+        self.assertEqual(
+            StreamParser().feed(raw),
+            [{"kind": "end", "session_id": "abc"}],
+        )
+
 
 class QueuedLineTest(unittest.TestCase):
     def test_streaming_reply_does_not_replace_a_queued_user_line(self):
@@ -89,7 +108,9 @@ class QueuedLineTest(unittest.TestCase):
             corner._model.append("user", "hello")
             corner._model.append("assistant", "hi")
             corner._queue.append("still queued")
+            corner._set_context_percent(18)
             corner.new_chat()
+            self.assertEqual(corner.contextPercent, -1)
             self.assertEqual(corner._session, "")
             self.assertEqual(corner._queue, [])
             self.assertEqual(corner._model._items, [])
@@ -113,6 +134,49 @@ class QueuedLineTest(unittest.TestCase):
         corner._apply({"kind": "text", "data": "Hi"})
         self.assertEqual(corner.activity, "Replying")
         self.assertEqual(corner._model._items[0]["body"], "Hi")
+
+    def test_prompt_tokens_become_a_percent_of_the_window(self):
+        from PySide6.QtGui import QGuiApplication
+
+        from main import Corner
+
+        QGuiApplication.instance() or QGuiApplication([])
+        corner = Corner()
+        corner._persist = lambda: None
+        self.assertEqual(corner.contextPercent, -1)
+        corner._apply({"kind": "context", "tokens": 46080})
+        self.assertEqual(corner.contextPercent, 18)
+        corner._apply({"kind": "context", "tokens": 179200})
+        self.assertEqual(corner.contextPercent, 70)
+        corner._apply({"kind": "context", "tokens": 207050})
+        self.assertEqual(corner.contextPercent, 81)
+
+    def test_small_dip_keeps_the_higher_reading(self):
+        from PySide6.QtGui import QGuiApplication
+
+        from main import Corner
+
+        QGuiApplication.instance() or QGuiApplication([])
+        corner = Corner()
+        corner._persist = lambda: None
+        corner._apply({"kind": "context", "tokens": 130560})
+        self.assertEqual(corner.contextPercent, 51)
+        corner._apply({"kind": "context", "tokens": 122880})
+        self.assertEqual(corner.contextPercent, 51)
+        corner._apply({"kind": "context", "tokens": 148480})
+        self.assertEqual(corner.contextPercent, 58)
+
+    def test_large_drop_is_a_real_shrink(self):
+        from PySide6.QtGui import QGuiApplication
+
+        from main import Corner
+
+        QGuiApplication.instance() or QGuiApplication([])
+        corner = Corner()
+        corner._persist = lambda: None
+        corner._apply({"kind": "context", "tokens": 207050})
+        corner._apply({"kind": "context", "tokens": 20480})
+        self.assertEqual(corner.contextPercent, 8)
 
 
 if __name__ == "__main__":

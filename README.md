@@ -1,6 +1,6 @@
 # GrokKDE_deskBuddy
 
-An always-on Grok button for a KDE Plasma Wayland session. It sits in the corner of the screen. Left-click opens the chat. Right-click opens Log in, Log out, Refresh chat, Autostart, and Exit. Refresh chat drops the current session so the next message starts with an empty context.
+An always-on Grok button for a KDE Plasma Wayland session. It sits in the corner of the screen. Left-click opens the chat. Right-click opens Log in, Log out, Refresh chat, Autostart, and Exit. Refresh chat drops the current session so the next message starts with an empty context. The title row shows how full that window is, as a percent, once a reply has reported it.
 
 This is not an official Grok or KDE app. The Grok name and mark belong to their owners.
 
