@@ -169,9 +169,8 @@ def _autostart_text(hidden: bool) -> str:
 
 # grok-4.7 fills this window, then compacts around 80%.
 CONTEXT_WINDOW = 256_000
-# A later call in the same reply can report a slightly smaller prompt.
-# Compaction drops the window by much more than this.
-CONTEXT_DIP = 15
+# Steps in one reply swing by about 15 points. Compaction falls much further.
+CONTEXT_DIP = 30
 
 
 def context_percent(tokens: int) -> int:

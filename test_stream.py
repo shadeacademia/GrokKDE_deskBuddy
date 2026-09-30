@@ -163,8 +163,12 @@ class QueuedLineTest(unittest.TestCase):
         self.assertEqual(corner.contextPercent, 51)
         corner._apply({"kind": "context", "tokens": 122880})
         self.assertEqual(corner.contextPercent, 51)
-        corner._apply({"kind": "context", "tokens": 148480})
-        self.assertEqual(corner.contextPercent, 58)
+        corner._apply({"kind": "context", "tokens": 156160})
+        self.assertEqual(corner.contextPercent, 61)
+        corner._apply({"kind": "context", "tokens": 117760})
+        self.assertEqual(corner.contextPercent, 61)
+        corner._apply({"kind": "context", "tokens": 163840})
+        self.assertEqual(corner.contextPercent, 64)
 
     def test_large_drop_is_a_real_shrink(self):
         from PySide6.QtGui import QGuiApplication
