@@ -333,6 +333,13 @@ Window {
                     }
                 }
                 MenuRow {
+                    label: "Refresh chat"
+                    onTriggered: {
+                        corner.new_chat()
+                        win.menuOpen = false
+                    }
+                }
+                MenuRow {
                     label: "Autostart"
                     stateText: corner.autostart ? "On" : "Off"
                     onTriggered: corner.setAutostart(!corner.autostart)

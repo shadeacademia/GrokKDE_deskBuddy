@@ -148,6 +148,13 @@ class ChatModel(QAbstractListModel):
             if item["body"].strip()
         ]
 
+    def clear(self) -> None:
+        if not self._items:
+            return
+        self.beginResetModel()
+        self._items.clear()
+        self.endResetModel()
+
 
 def _autostart_text(hidden: bool) -> str:
     icon = ICON_PATH if ICON_PATH.is_file() else APP_DIR / "grok-corner.png"
@@ -468,6 +475,48 @@ class Corner(QObject):
 
     def _persist(self) -> None:
         _atomic_write(TRANSCRIPT_PATH, json.dumps(self._model.snapshot(), ensure_ascii=False, indent=2))
+
+    def _drop_turn(self) -> None:
+        proc = self._proc
+        self._proc = None
+        self._assistant_row = None
+        self._assistant = ""
+        self._prompt = ""
+        self._stderr = ""
+        self._parser = StreamParser()
+        self._retried = False
+        self._closed = True
+        self._queue.clear()
+        if proc is None:
+            return
+        for signal, slot in (
+            (proc.readyReadStandardOutput, self._on_stdout),
+            (proc.readyReadStandardError, self._on_stderr),
+            (proc.finished, self._on_finished),
+            (proc.errorOccurred, self._on_error),
+        ):
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        proc.kill()
+        proc.deleteLater()
+
+    @Slot()
+    def new_chat(self) -> None:
+        # Drop the resumed session. The next message starts with an empty context.
+        self._drop_turn()
+        self._session = ""
+        try:
+            SESSION_PATH.unlink()
+        except OSError:
+            pass
+        self._model.clear()
+        self._set_busy(False)
+        self._set_activity("")
+        self._persist()
+        self.bumped.emit()
+        log("chat refreshed")
 
     @Slot()
     def quit(self) -> None:

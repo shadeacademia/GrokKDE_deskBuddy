@@ -65,6 +65,39 @@ class QueuedLineTest(unittest.TestCase):
             {"who": "user", "body": "the KDE overlay that this chat is in..(for context)"},
         )
 
+    def test_refresh_chat_drops_the_session_and_transcript(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        import main
+        from PySide6.QtGui import QGuiApplication
+
+        from main import Corner
+
+        QGuiApplication.instance() or QGuiApplication([])
+        tmp = Path(tempfile.mkdtemp())
+        saved = (main.RUNTIME, main.SESSION_PATH, main.TRANSCRIPT_PATH, main.LOG_PATH)
+        main.RUNTIME = tmp
+        main.SESSION_PATH = tmp / "session"
+        main.TRANSCRIPT_PATH = tmp / "transcript.json"
+        main.LOG_PATH = tmp / "log"
+        try:
+            corner = Corner()
+            corner._session = "old-session"
+            main.SESSION_PATH.write_text("old-session\n", encoding="utf-8")
+            corner._model.append("user", "hello")
+            corner._model.append("assistant", "hi")
+            corner._queue.append("still queued")
+            corner.new_chat()
+            self.assertEqual(corner._session, "")
+            self.assertEqual(corner._queue, [])
+            self.assertEqual(corner._model._items, [])
+            self.assertFalse(main.SESSION_PATH.exists())
+            self.assertEqual(json.loads(main.TRANSCRIPT_PATH.read_text(encoding="utf-8")), [])
+        finally:
+            main.RUNTIME, main.SESSION_PATH, main.TRANSCRIPT_PATH, main.LOG_PATH = saved
+
     def test_status_shows_thinking_then_replying(self):
         from PySide6.QtGui import QGuiApplication
 
